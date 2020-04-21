@@ -102,8 +102,10 @@ if [ -f $BUILD_DIR/gulpfile.js ] || [ -f $BUILD_DIR/Gulpfile.js ]; then
   if [ ! -z "${GULP_TASK:-}" ]; then
     echo "Found GULP_TASK, running 'gulp $GULP_TASK'"
     echo "###"
-    ls -Al node_modules
-    which gulp
+    ls -Al
+    pwd
+    # ls -Al node_modules
+    # which gulp
     echo "###"
     # node_modules/.bin/gulp $GULP_TASK
   else
