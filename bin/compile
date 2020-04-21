@@ -62,6 +62,7 @@ create_env # can't indent the whole thing because piping causes subshells; no ex
 list_node_config | indent
 
 install_bins() {
+    echo "install_bins"
 }
 
 header "Installing binaries"
@@ -88,6 +89,7 @@ header "Restoring cache"
 restore_cache | indent
 
 build_dependencies() {
+    echo "build dependencies"
 }
 
 header "Building dependencies"
