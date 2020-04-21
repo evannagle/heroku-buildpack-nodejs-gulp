@@ -128,6 +128,7 @@ if [ -f $BUILD_DIR/gulpfile.js ] || [ -f $BUILD_DIR/Gulpfile.js ]; then
 
 	echo "RUNNING: 	npm install --global gulp-cli"
 	yarn add global gulp-cli
+	yarn add global gulp
 
 	echo "RUNNING: yarn install"
 	yarn install
