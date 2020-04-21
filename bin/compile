@@ -125,13 +125,15 @@ if [ -f $BUILD_DIR/gulpfile.js ] || [ -f $BUILD_DIR/Gulpfile.js ]; then
 	# npm install --silent
 	echo "RUNNING: npm install --global yarn"
 	npm install --global yarn
-	echo "RUNNING: gulp install --global gulp"
-	npm install --global gulp
+
+	echo "RUNNING: 	npm install --global gulp-cli"
+	yarn install --global gulp-cli
+
 	echo "RUNNING: yarn install"
 	yarn install
+
 	echo "RUNNING: gulp $GULP_TASK"
 	gulp $GULP_TASK
-	# node_modules/.bin/gulp $GULP_TASK
     else
 	echo "No GULP_TASK env variable found"
     fi
