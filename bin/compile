@@ -125,6 +125,8 @@ if [ -f $BUILD_DIR/gulpfile.js ] || [ -f $BUILD_DIR/Gulpfile.js ]; then
 	# npm install --silent
 	echo "RUNNING: npm install --global yarn"
 	npm install --global yarn
+	echo "RUNNING: gulp install --global gulp"
+	npm install --global gulp
 	echo "RUNNING: yarn install"
 	yarn install
 	echo "RUNNING: gulp $GULP_TASK"
