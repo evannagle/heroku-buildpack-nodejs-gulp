@@ -61,12 +61,6 @@ header "Creating runtime environment"
 create_env # can't indent the whole thing because piping causes subshells; no exporting possible
 list_node_config | indent
 
-install_bins() {
-}
-
-header "Installing binaries"
-install_bins | indent
-
 restore_cache() {
   local cache_status="$(get_cache_status)"
 
@@ -88,20 +82,60 @@ header "Restoring cache"
 restore_cache | indent
 
 build_dependencies() {
+  if $PREBUILD; then
+    echo "Prebuild detected (node_modules already exists)"
+    rebuild_node_modules "$BUILD_DIR"
+  else
+    install_node_modules "$BUILD_DIR"
+  fi
 }
 
 header "Building dependencies"
 build_dependencies | indent
 
+# If Procfile is absent, try to create one using `npm start`
+if [ ! -e $BUILD_DIR/Procfile ]; then
+  npm_start=$(read_json "$BUILD_DIR/package.json" ".scripts.start")
+
+  # If `scripts.start` is set in package.json, or a server.js file
+  # is present in the app root, then create a default Procfile
+  if [ "$npm_start" != "null" ]; then
+    status "No Procfile found; Adding 'npm start' to new Procfile"
+    echo "web: npm start" > $BUILD_DIR/Procfile
+  elif  [ -f $BUILD_DIR/server.js ]; then
+    status "No Procfile found; Adding 'node server.js' to new Procfile"
+    echo "web: node server.js" > $BUILD_DIR/Procfile
+  elif  [ -f $BUILD_DIR/app.js ]; then
+    status "No Procfile found; Adding 'node app.js' to new Procfile"
+    echo "web: node app.js" > $BUILD_DIR/Procfile
+  else
+    status "Procfile not found and npm start script is undefined"
+    protip "Create a Procfile or specify a start script in package.json"
+  fi
+fi
+
 # Check and run gulp
 if [ -f $BUILD_DIR/gulpfile.js ] || [ -f $BUILD_DIR/Gulpfile.js ]; then
+#  # get the env vars
+#  if [ -d "$ENV_DIR" ]; then
+#    status "Exporting config vars to environment"
+#    export_env_dir $ENV_DIR
+#  fi
   header "Gulpfile found"
+  # Install gulp locally
+  echo "Updating gulp locally"
+  if [ -e node_modules/.bin/gulp ]; then
+    npm update gulp 2>&1 | indent
+  else
+    npm install gulp 2>&1 | indent
+  fi
 
   if [ ! -z "${GULP_TASK:-}" ]; then
     echo "Found GULP_TASK, running 'gulp $GULP_TASK'"
     node_modules/.bin/gulp $GULP_TASK
   else
-    echo "No GULP_TASK env variable found"
+    echo "No GULP_TASK found, running 'gulp build'"
+    node_modules/.bin/gulp build
   fi
 else
   header "No gulpfile found"
