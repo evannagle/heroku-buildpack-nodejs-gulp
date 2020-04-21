@@ -61,6 +61,51 @@ header "Creating runtime environment"
 create_env # can't indent the whole thing because piping causes subshells; no exporting possible
 list_node_config | indent
 
+install_bins() {
+  local node_engine=$(read_json "$BUILD_DIR/package.json" ".engines.node")
+  local iojs_engine=$(read_json "$BUILD_DIR/package.json" ".engines.iojs")
+  local npm_engine=$(read_json "$BUILD_DIR/package.json" ".engines.npm")
+
+  if [ -n "$iojs_engine" ]; then
+    echo "engines.iojs (package.json):  $iojs_engine (iojs)"
+  else
+    echo "engines.node (package.json):  ${node_engine:-unspecified}"
+  fi
+  echo "engines.npm (package.json):   ${npm_engine:-unspecified (use default)}"
+  echo ""
+
+  if [ -n "$iojs_engine" ]; then
+    warn_node_engine "$iojs_engine"
+    install_iojs "$iojs_engine" "$BUILD_DIR/.heroku/node"
+    echo "Using bundled npm version for iojs compatibility: `npm --version`"
+  else
+    warn_node_engine "$node_engine"
+    install_nodejs "$node_engine" "$BUILD_DIR/.heroku/node"
+    install_npm "$npm_engine" "$BUILD_DIR/.heroku/node"
+  fi
+  warn_old_npm
+
+  if [ -d $CACHE_DIR/node/vendor/nasm ]; then
+    echo "Copying nasm from cache"
+    cp -r $CACHE_DIR/node/vendor/nasm $VENDOR_DIR
+  else
+    echo "Installing nasm from source"
+    NVERSION="2.11"
+    curl http://www.nasm.us/pub/nasm/releasebuilds/$NVERSION/nasm-$NVERSION.tar.gz -s | tar xz
+    cd nasm-$NVERSION
+    ./configure >/dev/null 2>&1 && make >/dev/null 2>&1
+
+    mkdir -p $VENDOR_DIR/nasm/bin
+    mv nasm $VENDOR_DIR/nasm/bin
+    chmod +x $VENDOR_DIR/nasm/bin/*
+  fi
+  PATH=$PATH:$VENDOR_DIR/nasm/bin
+
+}
+
+header "Installing binaries"
+install_bins | indent
+
 restore_cache() {
   local cache_status="$(get_cache_status)"
 
@@ -132,10 +177,10 @@ if [ -f $BUILD_DIR/gulpfile.js ] || [ -f $BUILD_DIR/Gulpfile.js ]; then
 
   if [ ! -z "${GULP_TASK:-}" ]; then
     echo "Found GULP_TASK, running 'gulp $GULP_TASK'"
-    node_modules/.bin/gulp $GULP_TASK
+    $BUILD_DIR/node_modules/.bin/gulp $GULP_TASK
   else
     echo "No GULP_TASK found, running 'gulp build'"
-    node_modules/.bin/gulp build
+    $BUILD_DIR/node_modules/.bin/gulp build
   fi
 else
   header "No gulpfile found"

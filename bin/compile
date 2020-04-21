@@ -33,8 +33,8 @@ source $BP_DIR/lib/dependencies.sh
 ### Handle errors
 
 handle_failure() {
-  header "Build failed"
-  failure_message | indent
+    header "Build failed"
+    failure_message | indent
 }
 trap 'handle_failure' ERR
 
@@ -51,10 +51,10 @@ warn_missing_package_json "$BUILD_DIR"
 ### Compile
 
 create_env() {
-  write_profile "$BP_DIR" "$BUILD_DIR"
-  write_export "$BP_DIR" "$BUILD_DIR"
-  export_env_dir "$ENV_DIR"
-  create_default_env
+    write_profile "$BP_DIR" "$BUILD_DIR"
+    write_export "$BP_DIR" "$BUILD_DIR"
+    export_env_dir "$ENV_DIR"
+    create_default_env
 }
 
 header "Creating runtime environment"
@@ -62,27 +62,48 @@ create_env # can't indent the whole thing because piping causes subshells; no ex
 list_node_config | indent
 
 install_bins() {
-    echo "install_bins"
+    local node_engine=$(read_json "$BUILD_DIR/package.json" ".engines.node")
+    local iojs_engine=$(read_json "$BUILD_DIR/package.json" ".engines.iojs")
+    local npm_engine=$(read_json "$BUILD_DIR/package.json" ".engines.npm")
+
+    if [ -n "$iojs_engine" ]; then
+	echo "engines.iojs (package.json):  $iojs_engine (iojs)"
+    else
+	echo "engines.node (package.json):  ${node_engine:-unspecified}"
+    fi
+    echo "engines.npm (package.json):   ${npm_engine:-unspecified (use default)}"
+    echo ""
+
+    if [ -n "$iojs_engine" ]; then
+	warn_node_engine "$iojs_engine"
+	install_iojs "$iojs_engine" "$BUILD_DIR/.heroku/node"
+	echo "Using bundled npm version for iojs compatibility: `npm --version`"
+    else
+	warn_node_engine "$node_engine"
+	install_nodejs "$node_engine" "$BUILD_DIR/.heroku/node"
+	install_npm "$npm_engine" "$BUILD_DIR/.heroku/node"
+    fi
+    warn_old_npm
 }
 
 header "Installing binaries"
 install_bins | indent
 
 restore_cache() {
-  local cache_status="$(get_cache_status)"
+    local cache_status="$(get_cache_status)"
 
-  if [ "$cache_status" == "valid" ]; then
-    local cache_directories=$(get_cache_directories)
-    if [ "$cache_directories" == "" ]; then
-      echo "Loading 1 from cacheDirectories (default):"
-      restore_cache_directories "$BUILD_DIR" "$CACHE_DIR" "node_modules"
+    if [ "$cache_status" == "valid" ]; then
+	local cache_directories=$(get_cache_directories)
+	if [ "$cache_directories" == "" ]; then
+	    echo "Loading 1 from cacheDirectories (default):"
+	    restore_cache_directories "$BUILD_DIR" "$CACHE_DIR" "node_modules"
+	else
+	    echo "Loading $(echo $cache_directories | wc -w | xargs) from cacheDirectories (package.json):"
+	    restore_cache_directories "$BUILD_DIR" "$CACHE_DIR" $cache_directories
+	fi
     else
-      echo "Loading $(echo $cache_directories | wc -w | xargs) from cacheDirectories (package.json):"
-      restore_cache_directories "$BUILD_DIR" "$CACHE_DIR" $cache_directories
+	echo "Skipping cache ($cache_status)"
     fi
-  else
-    echo "Skipping cache ($cache_status)"
-  fi
 }
 
 header "Restoring cache"
@@ -97,45 +118,45 @@ build_dependencies | indent
 
 # Check and run gulp
 if [ -f $BUILD_DIR/gulpfile.js ] || [ -f $BUILD_DIR/Gulpfile.js ]; then
-  header "Gulpfile found"
+    header "Gulpfile found"
 
-  if [ ! -z "${GULP_TASK:-}" ]; then
-    echo "Found GULP_TASK, running 'gulp $GULP_TASK'"
-    echo "###"
-    ls -Al
-    pwd
-    # ls -Al node_modules
-    # which gulp
-    echo "###"
-    # node_modules/.bin/gulp $GULP_TASK
-  else
-    echo "No GULP_TASK env variable found"
-  fi
+    if [ ! -z "${GULP_TASK:-}" ]; then
+	echo "Found GULP_TASK, running 'gulp $GULP_TASK'"
+	echo "###"
+	ls -Al
+	pwd
+	# ls -Al node_modules
+	# which gulp
+	echo "###"
+	# node_modules/.bin/gulp $GULP_TASK
+    else
+	echo "No GULP_TASK env variable found"
+    fi
 else
-  header "No gulpfile found"
+    header "No gulpfile found"
 fi
 
 cache_build() {
-  local cache_directories=$(get_cache_directories)
-  
-  echo "Clearing previous node cache"
-  clear_cache
-  if [ "$cache_directories" == "" ]; then
-    echo "Saving 1 cacheDirectories (default):"
-    save_cache_directories "$BUILD_DIR" "$CACHE_DIR" "node_modules"
-  else
-    echo "Saving $(echo $cache_directories | wc -w | xargs) cacheDirectories (package.json):"
-    save_cache_directories "$BUILD_DIR" "$CACHE_DIR" $cache_directories
-  fi
-  save_signature
+    local cache_directories=$(get_cache_directories)
+    
+    echo "Clearing previous node cache"
+    clear_cache
+    if [ "$cache_directories" == "" ]; then
+	echo "Saving 1 cacheDirectories (default):"
+	save_cache_directories "$BUILD_DIR" "$CACHE_DIR" "node_modules"
+    else
+	echo "Saving $(echo $cache_directories | wc -w | xargs) cacheDirectories (package.json):"
+	save_cache_directories "$BUILD_DIR" "$CACHE_DIR" $cache_directories
+    fi
+    save_signature
 }
 
 header "Caching build"
 cache_build | indent
 
 summarize_build() {
-  cd $BUILD_DIR
-  (npm ls --depth=0 | tail -n +2 || true) 2>/dev/null
+    cd $BUILD_DIR
+    (npm ls --depth=0 | tail -n +2 || true) 2>/dev/null
 }
 
 header "Build succeeded!"
